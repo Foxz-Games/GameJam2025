@@ -36,7 +36,7 @@ AnimatorController:
   m_Name: player-idle_0
   serializedVersion: 5
   m_AnimatorParameters:
-  - m_Name: magnitude
+  - m_Name: xVelocity
     m_Type: 1
     m_DefaultFloat: 0
     m_DefaultInt: 0
@@ -89,7 +89,7 @@ AnimatorStateTransition:
   m_Name: 
   m_Conditions:
   - m_ConditionMode: 3
-    m_ConditionEvent: magnitude
+    m_ConditionEvent: xVelocity
     m_EventTreshold: 0
   m_DstStateMachine: {fileID: 0}
   m_DstState: {fileID: -6710378282507579883}
@@ -114,7 +114,7 @@ AnimatorStateTransition:
   m_Name: 
   m_Conditions:
   - m_ConditionMode: 4
-    m_ConditionEvent: magnitude
+    m_ConditionEvent: xVelocity
     m_EventTreshold: 0.1
   m_DstStateMachine: {fileID: 0}
   m_DstState: {fileID: 5289734035291666314}

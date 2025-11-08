@@ -14,7 +14,7 @@ public class PlayerMovement : MonoBehaviour
 	public Animator animator;
 
 	[Header("Movement")]
-	public float moveSpeed = 5f;
+	public float moveSpeed = 8f;
 	float horizontalMovement;
 	bool isFacingRight = true;
 
@@ -37,17 +37,18 @@ public class PlayerMovement : MonoBehaviour
 	[Header("WallMovement")]
 	public float wallSlideSpeed = 2f;
 	bool isWallSliding = false;
+	float wallSlideDuration = 2f; //TODO: implement
 
 	bool isWallJumping;
 	float wallJumpDirection;
-	float wallJumpTime = 0.5f;
+	float wallJumpTime = 0.25f;
 	float wallJumpTimer;
-	public Vector2 wallJumpPower = new Vector2(5f, 10f);
+	public Vector2 wallJumpPower = new Vector2(8f, 10f);
 
 	[Header("Gravity")]
-	public float baseGravity = 2f;
-	public float maxFallSpeed = 10f;
-	public float fallSpeedMultiplier = 2f;
+	public float baseGravity = 1.5f;
+	public float maxFallSpeed = 12f;
+	public float fallSpeedMultiplier = 2.5f;
 
 	void Start()
 	{
@@ -131,7 +132,7 @@ public class PlayerMovement : MonoBehaviour
 		}
 		else if (wallJumpTimer > 0f)
 		{
-			wallJumpTimer += Time.deltaTime;
+			wallJumpTimer = Mathf.Max(0f, wallJumpTimer - Time.deltaTime);	
 		}
 	}
 
@@ -146,7 +147,12 @@ public class PlayerMovement : MonoBehaviour
 		{
 			if (context.performed)
 			{
-				rb.linearVelocity = new Vector2(rb.linearVelocity.x, jumpPower);
+				float jp = jumpPower;
+				if (jumpsRemaining != maxJumps)
+				{
+					jp *= .85f;
+				}
+				rb.linearVelocity = new Vector2(rb.linearVelocity.x, jp);
 				jumpsRemaining--;
 			}
 			else if (context.canceled)
@@ -161,7 +167,8 @@ public class PlayerMovement : MonoBehaviour
 		{
 			isWallJumping = true;
 			rb.linearVelocity = new Vector2(wallJumpDirection * wallJumpPower.x, wallJumpPower.y);
-			wallJumpTimer = 0;
+
+			wallJumpTimer = 0f;
 
 			if (transform.localScale.x != wallJumpDirection)
 			{
