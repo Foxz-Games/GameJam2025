@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Dynamic;
 using System.Numerics;
+using System.Reflection;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -9,10 +10,12 @@ using Vector3 = UnityEngine.Vector3;
 
 public class PlayerMovement : MonoBehaviour
 {
-    public Rigidbody2D rb;
-    [Header("Movement")]
-    public float moveSpeed = 5f;
-    float horizontalMovement;
+	public Rigidbody2D rb;
+	public Animator animator;
+
+	[Header("Movement")]
+	public float moveSpeed = 5f;
+	float horizontalMovement;
 	bool isFacingRight = true;
 
 	[Header("Jumping")]
@@ -25,7 +28,7 @@ public class PlayerMovement : MonoBehaviour
 	public Vector2 groundCheckSize = new Vector2(0.5f, 0.05f);
 	public LayerMask groundLayer;
 	bool isGrounded = false;
-	
+
 	[Header("WallCheck")]
 	public Transform wallCheckPos;
 	public Vector2 wallCheckSize = new Vector2(0.5f, 0.05f);
@@ -53,7 +56,7 @@ public class PlayerMovement : MonoBehaviour
 
 	// Update is called once per frame
 	void Update()
-    {
+	{
 		GroundCheck();
 		ProcessGravity();
 		ProcessWallSlide();
@@ -64,7 +67,9 @@ public class PlayerMovement : MonoBehaviour
 			rb.linearVelocity = new Vector2(horizontalMovement * moveSpeed, rb.linearVelocity.y);
 			Flip();
 		}
-    }
+
+		animator.SetFloat("xVelocity", Mathf.Abs(rb.linearVelocity.x));
+	}
 
 	public void Move(InputAction.CallbackContext context)
 	{
@@ -78,13 +83,13 @@ public class PlayerMovement : MonoBehaviour
 			_Flip();
 		}
 	}
-	
+
 	private void _Flip()
 	{
-			isFacingRight = !isFacingRight;
-			Vector3 ls = transform.localScale;
-			ls.x *= -1f;
-			transform.localScale = ls;
+		isFacingRight = !isFacingRight;
+		Vector3 ls = transform.localScale;
+		ls.x *= -1f;
+		transform.localScale = ls;
 	}
 
 	private void ProcessGravity()
@@ -129,7 +134,7 @@ public class PlayerMovement : MonoBehaviour
 			wallJumpTimer += Time.deltaTime;
 		}
 	}
-	
+
 	private void CancelWallJump()
 	{
 		isWallJumping = false;
@@ -150,14 +155,14 @@ public class PlayerMovement : MonoBehaviour
 				jumpsRemaining--;
 			}
 		}
-		
+
 		// Wall jump
 		if (context.performed && wallJumpTimer > 0f)
 		{
 			isWallJumping = true;
 			rb.linearVelocity = new Vector2(wallJumpDirection * wallJumpPower.x, wallJumpPower.y);
 			wallJumpTimer = 0;
-			
+
 			if (transform.localScale.x != wallJumpDirection)
 			{
 				_Flip();
@@ -166,12 +171,12 @@ public class PlayerMovement : MonoBehaviour
 			Invoke(nameof(CancelWallJump), wallJumpTime + 0.1f);
 		}
 	}
-	
+
 	private bool WallCheck()
 	{
 		return Physics2D.OverlapBox(wallCheckPos.position, wallCheckSize, 0, wallLayer);
 	}
-	
+
 	private void GroundCheck()
 	{
 		if (Physics2D.OverlapBox(groundCheckPos.position, groundCheckSize, 0, groundLayer))
