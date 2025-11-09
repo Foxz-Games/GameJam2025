@@ -12,6 +12,7 @@ public class PlayerMovement : MonoBehaviour
 {
 	public Rigidbody2D rb;
 	public Animator animator;
+	public ParticleSystem smokeFX;
 
 	[Header("Movement")]
 	public float moveSpeed = 8f;
@@ -22,6 +23,7 @@ public class PlayerMovement : MonoBehaviour
 	public float jumpPower = 10f;
 	public int maxJumps = 1;
 	int jumpsRemaining;
+	public float jumpBuffer = 0.25f;
 
 	[Header("GroundCheck")]
 	public Transform groundCheckPos;
@@ -41,7 +43,8 @@ public class PlayerMovement : MonoBehaviour
 
 	bool isWallJumping;
 	float wallJumpDirection;
-	float wallJumpTime = 0.25f;
+	float wallJumpDuration = 0.1f;
+	float wallJumpCoyote = 0.25f;
 	float wallJumpTimer;
 	public Vector2 wallJumpPower = new Vector2(8f, 10f);
 
@@ -91,6 +94,11 @@ public class PlayerMovement : MonoBehaviour
 		Vector3 ls = transform.localScale;
 		ls.x *= -1f;
 		transform.localScale = ls;
+
+		if (rb.linearVelocity.y == 0)
+		{
+			smokeFX.Play();
+		}
 	}
 
 	private void ProcessGravity()
@@ -126,7 +134,7 @@ public class PlayerMovement : MonoBehaviour
 		{
 			isWallJumping = false;
 			wallJumpDirection = -transform.localScale.x;
-			wallJumpTimer = wallJumpTime;
+			wallJumpTimer = wallJumpCoyote;
 
 			CancelInvoke(nameof(CancelWallJump));
 		}
@@ -154,11 +162,13 @@ public class PlayerMovement : MonoBehaviour
 				}
 				rb.linearVelocity = new Vector2(rb.linearVelocity.x, jp);
 				jumpsRemaining--;
+				JumpFX();
 			}
 			else if (context.canceled)
 			{
 				rb.linearVelocity = new Vector2(rb.linearVelocity.x, rb.linearVelocity.y * 0.5f);
 				jumpsRemaining--;
+				JumpFX();
 			}
 		}
 
@@ -169,14 +179,21 @@ public class PlayerMovement : MonoBehaviour
 			rb.linearVelocity = new Vector2(wallJumpDirection * wallJumpPower.x, wallJumpPower.y);
 
 			wallJumpTimer = 0f;
+			JumpFX();
 
 			if (transform.localScale.x != wallJumpDirection)
 			{
 				_Flip();
 			}
 
-			Invoke(nameof(CancelWallJump), wallJumpTime + 0.1f);
+			// cancel wallJump state after set time
+			Invoke(nameof(CancelWallJump), wallJumpDuration + 0.1f);
 		}
+	}
+	
+	private void JumpFX()
+	{
+		smokeFX.Play();
 	}
 
 	private bool WallCheck()
