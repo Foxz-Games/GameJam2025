@@ -1,5 +1,7 @@
+using System.Collections;
 using System.Diagnostics;
 using System.Dynamic;
+using System.Linq.Expressions;
 using System.Numerics;
 using System.Reflection;
 using NUnit.Framework;
@@ -19,11 +21,22 @@ public class PlayerMovement : MonoBehaviour
 	float horizontalMovement;
 	bool isFacingRight = true;
 
+	[Header("Dashing")]
+	public float dashSpeed = 20f;
+	public float dashDuration = 0.2f;
+	public float dashCooldown = 0.1f;
+	bool isDashing;
+	bool canDash = true;
+	TrailRenderer trailRenderer;
+
 	[Header("Jumping")]
 	public float jumpPower = 10f;
 	public int maxJumps = 1;
 	int jumpsRemaining;
-	public float jumpBuffer = 0.25f;
+	// private float jumpBuffer = 0.2f;
+	// private float jumpBufferTimer = 0;
+	// private float coyoteTime = 0.2f;
+	// private float coyoteTimeTimer = 0;
 
 	[Header("GroundCheck")]
 	public Transform groundCheckPos;
@@ -37,9 +50,8 @@ public class PlayerMovement : MonoBehaviour
 	public LayerMask wallLayer;
 
 	[Header("WallMovement")]
-	public float wallSlideSpeed = 2f;
+	public float wallSlideAcceleration = 35f;
 	bool isWallSliding = false;
-	float wallSlideDuration = 2f; //TODO: implement
 
 	bool isWallJumping;
 	float wallJumpDirection;
@@ -56,11 +68,18 @@ public class PlayerMovement : MonoBehaviour
 	void Start()
 	{
 		DoubleJumpItem.OnDoubleJumpCollect += _ => maxJumps = 2;
+		trailRenderer = GetComponent<TrailRenderer>();
 	}
 
 	// Update is called once per frame
 	void Update()
 	{
+		animator.SetFloat("xVelocity", Mathf.Abs(rb.linearVelocity.x));
+
+		if (isDashing)
+		{
+			return;
+		}
 		GroundCheck();
 		ProcessGravity();
 		ProcessWallSlide();
@@ -71,13 +90,6 @@ public class PlayerMovement : MonoBehaviour
 			rb.linearVelocity = new Vector2(horizontalMovement * moveSpeed, rb.linearVelocity.y);
 			Flip();
 		}
-
-		animator.SetFloat("xVelocity", Mathf.Abs(rb.linearVelocity.x));
-	}
-
-	public void Move(InputAction.CallbackContext context)
-	{
-		horizontalMovement = context.ReadValue<Vector2>().x;
 	}
 
 	private void Flip()
@@ -103,6 +115,12 @@ public class PlayerMovement : MonoBehaviour
 
 	private void ProcessGravity()
 	{
+		if (isWallSliding)
+		{
+			rb.gravityScale = 0f;
+			return;
+		}
+
 		if (rb.linearVelocity.y < 0)
 		{
 			rb.gravityScale = baseGravity * fallSpeedMultiplier;
@@ -116,11 +134,18 @@ public class PlayerMovement : MonoBehaviour
 
 	private void ProcessWallSlide()
 	{
-		if (!isGrounded && WallCheck() && horizontalMovement != 0)
+		bool touchingWall = !isGrounded && WallCheck() && horizontalMovement != 0;
+
+		if (touchingWall)
 		{
-			isWallSliding = true;
-			rb.linearVelocity = new Vector2(rb.linearVelocity.x, Mathf.Max(rb.linearVelocity.y, -wallSlideSpeed));
-			UnityEngine.Debug.Log(isWallSliding);
+			if (!isWallSliding)
+			{
+				isWallSliding = true;
+				rb.linearVelocity = new Vector2(rb.linearVelocity.x, 0f);
+			}
+
+			float newY = Mathf.MoveTowards(rb.linearVelocity.y, -maxFallSpeed, wallSlideAcceleration * Time.deltaTime);
+			rb.linearVelocity = new Vector2(rb.linearVelocity.x, newY);
 		}
 		else
 		{
@@ -149,31 +174,68 @@ public class PlayerMovement : MonoBehaviour
 		isWallJumping = false;
 	}
 
-	public void Jump(InputAction.CallbackContext context)
+	public void Move(InputAction.CallbackContext context)
 	{
+		horizontalMovement = context.ReadValue<Vector2>().x;
+	}
+
+	public void Dash(InputAction.CallbackContext ctx)
+	{
+		bool buttonPressed = ctx.performed;
+		if (buttonPressed && canDash)
+		{
+			StartCoroutine(DashCoroutine());
+		}
+	}
+	
+	private IEnumerator DashCoroutine()
+	{
+		canDash = false;
+		isDashing = true;
+
+		trailRenderer.emitting = true;
+		float dashDirection = isFacingRight ? 1f : -1f;
+		rb.linearVelocity = new Vector2(dashDirection * dashSpeed, 0);
+
+		yield return new WaitForSeconds(dashDuration);
+
+		rb.linearVelocity = new Vector2(0f, rb.linearVelocity.y);
+
+		isDashing = false;
+		trailRenderer.emitting = false;
+
+		yield return new WaitForSeconds(dashCooldown);
+		canDash = true;
+	}
+
+	public void Jump(InputAction.CallbackContext ctx)
+	{
+		bool buttonPressed = ctx.performed;
+		bool buttonReleased = ctx.canceled;
 		if (jumpsRemaining > 0)
 		{
-			if (context.performed)
+			if (buttonPressed)
 			{
 				float jp = jumpPower;
 				if (jumpsRemaining != maxJumps)
 				{
+					// make double jump shorter
 					jp *= .85f;
 				}
 				rb.linearVelocity = new Vector2(rb.linearVelocity.x, jp);
 				jumpsRemaining--;
 				JumpFX();
 			}
-			else if (context.canceled)
+			else if (buttonReleased)
 			{
-				rb.linearVelocity = new Vector2(rb.linearVelocity.x, rb.linearVelocity.y * 0.5f);
+				rb.linearVelocity = new Vector2(rb.linearVelocity.x, rb.linearVelocity.y * 0.15f);
 				jumpsRemaining--;
 				JumpFX();
 			}
 		}
 
 		// Wall jump
-		if (context.performed && wallJumpTimer > 0f)
+		if (buttonPressed && wallJumpTimer > 0f)
 		{
 			isWallJumping = true;
 			rb.linearVelocity = new Vector2(wallJumpDirection * wallJumpPower.x, wallJumpPower.y);
@@ -193,7 +255,7 @@ public class PlayerMovement : MonoBehaviour
 	
 	private void JumpFX()
 	{
-		smokeFX.Play();
+		//smokeFX.Play();
 	}
 
 	private bool WallCheck()
